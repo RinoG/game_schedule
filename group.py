@@ -6,44 +6,81 @@ import pdb
 class Group:
     def __init__(self, teams):
         self.teams = teams
-        if len(self.teams) % 2 == 1: self.teams = self.teams + [None]
+        self.is_even = len(teams) % 2 == 0
         
-    def pairing_tables(self):
+    def get_schurig_tables(self):
         """ Construction of pairing tables by Richard Schurig 
-            https://en.wikipedia.org/wiki/Round-robin_tournament#Original_construction_of_pairing_tables_by_Richard_schurig_(1886)  """
+            https://en.wikipedia.org/wiki/Round-robin_tournament#Original_construction_of_pairing_tables_by_Richard_Schurig_(1886)  """
+
         n = len(self.teams)
+        rounds = n - 1 if self.is_even else n
+        matches = int(np.ceil(n / 2))
         
-        indices = list(range(n))
-        half = n // 2
+        table_1 = np.zeros([rounds, matches]).astype(int)
+        table_2 = np.zeros([rounds, matches]).astype(int)
+        
+        counter = 0
+        round_counter = 0
+        for r in range(rounds):
+            for m in range(matches):
 
-        rounds = [f'round {i+1}' for i in range(n-1)]
-        games = [f'game {i+1}' for i in range(half)]
-        
-        schedule = pd.DataFrame(index=rounds, columns = games)
-        
-        for i in range(n-1):
-            index_1 = indices[:half]
-            index_2 = indices[half:]
-            # index_2.reverse()
-            # pdb.set_trace()
+                table_1[r, m] = counter % rounds
+                table_2[rounds - 1 - r, matches - 1 - m] = \
+                    (counter - round_counter) % rounds
+                counter += 1
+            round_counter += 1
+            
+        return table_1, table_2
 
-            for j in range(half):
-                team_1 = self.teams[index_1[j]]
-                team_2 = self.teams[index_2[j]]
-                schedule.iloc[i, j] = [team_1, team_2]
-            indices = indices[half:-1] + indices[:half] + indices[-1:]
-        return schedule
+    def get_even_tables(self):
+        """ Update first column when number of teams is even.
+            Last team (n) is alternatingly substituted for the for the first match """
+        
+        table_1, table_2 = self.get_schurig_tables()
+
+        n = len(table_1)
+        for i in range(n):
+            if i % 2 == 0:
+                table_2[i, 0] = n
+            else:
+                table_1[i, 0] = n
+        
+        return table_1, table_2
+
+    def get_odd_tables(self):
+        """ Delete first column when number of team is odd. """
+        
+        table_1, table_2 = self.get_schurig_tables()
+
+        table_1 = np.delete(table_1, 0, 1)
+        table_2 = np.delete(table_2, 0, 1)
+        
+        return table_1, table_2
+    
+    def get_pairing_tables(self):
+        """ Returns the pairing table from a team in form of a Pandas-Dataframe. """
+        
+        if self.is_even:
+            table_1, table_2 = self.get_even_tables()
+        else:
+            table_1, table_2 = self.get_odd_tables()
+
+        # generate DataFrame
+        col = [f'match {i+1}' for i in range(table_1.shape[1])]
+        idx = [f'round {i+1}' for i in range(table_1.shape[0])]
+        table = pd.DataFrame(index=idx, columns=col)
+    
+        # merge both tables
+        for r in range(table_1.shape[0]):
+            for m in range(table_1.shape[1]):
+                table.iloc[r, m] = self.teams[table_1[r, m]], self.teams[table_2[r, m]]
+
+        return table
 
 
 if __name__ == "__main__":
-    print("start")
-    a = Team('a')
-    b = Team('b')
-    c = Team('c')
-    d = Team('d')
-    e = Team('e')
-
-    rr = Group([a.name, b.name, c.name, d.name])
     
-    print(rr.pairing_tables())
+    rr = Group(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'])
+    
+    print(rr.get_pairing_tables())
     # pdb.set_trace()
